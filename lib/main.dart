@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
 import 'package:live_sale/setting_page.dart';
 import 'package:wakelock/wakelock.dart';
 
@@ -8,6 +9,8 @@ import 'bloc/login/cubit/login_cubit.dart';
 import 'bloc/product_fetch/product_fetch_cubit.dart';
 import 'bloc/session_check/session_check_cubit.dart';
 import 'home_page.dart';
+
+List<Device> connectedDeviceList = [];
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,12 +29,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (context) => SessionCheckCubit()),
         BlocProvider(create: (context) => FetchDatabaseCubit()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Flutter Demo',
+        title: 'Live Sale Screen',
         theme: ThemeData(primarySwatch: Colors.purple),
         onGenerateRoute: routeGenerate,
         initialRoute: home,
@@ -46,6 +48,7 @@ class MyApp extends StatelessWidget {
         return MaterialPageRoute(
           builder: (context) => MultiBlocProvider(
             providers: [
+              BlocProvider(create: (context) => SessionCheckCubit()),
               BlocProvider(create: (context) => LoginCubit()),
             ],
             child: const SettingPage(),
@@ -55,6 +58,7 @@ class MyApp extends StatelessWidget {
         return MaterialPageRoute(
           builder: (context) => MultiBlocProvider(
             providers: [
+              BlocProvider(create: (context) => SessionCheckCubit()),
               BlocProvider(create: (context) => LoginCubit()),
               BlocProvider(create: (context) => ProductFetchCubit()),
             ],

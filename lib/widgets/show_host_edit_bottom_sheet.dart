@@ -63,10 +63,7 @@ Future<String?> showHostNameInputBottomSheet(BuildContext context,
                       onPressed: () async {
                         if (hostNameInputFormKey.currentState?.validate() ??
                             false) {
-                          context
-                              .read<SessionCheckCubit>()
-                              .giveSuccess(hostname);
-                          Navigator.pop(context);
+                          Navigator.pop(context, hostname);
                         }
                       },
                       child: const Text('confirm')),

@@ -57,8 +57,15 @@ class _SettingPageState extends State<SettingPage> {
                 return ListTile(
                     title: const Text('host name'),
                     trailing: Text(host ?? ''),
-                    onTap: () => showHostNameInputBottomSheet(context,
-                        cancelable: true, hostname: host ?? ''));
+                    onTap: () async {
+                      String? hostName = await showHostNameInputBottomSheet(
+                          context,
+                          cancelable: true,
+                          hostname: host ?? '');
+                      if (hostName != null) {
+                        context.read<SessionCheckCubit>().giveSuccess(hostName);
+                      }
+                    });
               },
             ),
             // ListTile(

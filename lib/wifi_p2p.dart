@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
 
+import 'main.dart';
+
 enum DeviceType { advertiser, browser }
 
 class WifiP2PConnectionUtils {
@@ -82,6 +84,11 @@ class WifiP2PConnectionUtils {
   }
 
   void stopHost() {
+    if (connectedDeviceList.isNotEmpty) {
+      connectedDeviceList.forEach((element) {
+        _nearbyService?.disconnectPeer(deviceID: element.deviceId);
+      });
+    }
     processRunning = false;
     _nearbyService?.stopAdvertisingPeer();
   }

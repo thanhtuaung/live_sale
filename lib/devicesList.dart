@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
 import 'package:live_sale/wifi_p2p.dart';
 
+import 'main.dart';
+
 class DevicesListScreen extends StatefulWidget {
   final String deviceName;
 
@@ -36,6 +38,7 @@ class DevicesListScreenState extends State<DevicesListScreen> {
       });
     } else {
       _listener(_wifiP2PConnectionUtils.nearbyService);
+      connectedDevices = connectedDeviceList;
     }
     super.initState();
   }
@@ -57,6 +60,7 @@ class DevicesListScreenState extends State<DevicesListScreen> {
           final device = widget.deviceType == DeviceType.advertiser
               ? connectedDevices[index]
               : deviceList[index];
+          connectedDeviceList = connectedDevices;
           return Container(
             margin: const EdgeInsets.all(8.0),
             child: Column(
@@ -208,6 +212,7 @@ class DevicesListScreenState extends State<DevicesListScreen> {
       deviceList.addAll(deviceListR);
 
       connectedDevices.clear();
+      connectedDeviceList = connectedDevices;
       connectedDevices.addAll(
         deviceList.where((d) => d.state == SessionState.connected).toList(),
       );

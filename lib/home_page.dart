@@ -5,15 +5,17 @@ import 'package:atom_ui/dialogs/show_circular_progress_dialog.dart';
 import 'package:atom_ui/widgets/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_blue_elves/flutter_blue_elves.dart';
 import 'package:live_sale/bloc/login/cubit/login_cubit.dart';
 import 'package:live_sale/bloc/product_fetch/product_fetch_cubit.dart';
-import 'package:live_sale/bloc/session_check/session_check_cubit.dart';
 import 'package:live_sale/devicesList.dart';
 import 'package:live_sale/setting_page.dart';
 import 'package:live_sale/widgets/show_host_edit_bottom_sheet.dart';
 import 'package:live_sale/wifi_p2p.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:simple_circular_progress_bar/simple_circular_progress_bar.dart';
 
+import 'bloc/session_check/session_check_cubit.dart';
 import 'main.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -38,13 +40,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
+    checkPermission();
     _notifier = ValueNotifier<double>(0.0);
-    context.read<LoginCubit>().loginCheck();
     _check();
     _productFetchCubit = context.read<ProductFetchCubit>();
     super.initState();
-
-    checkPermission();
   }
 
   @override
@@ -62,7 +62,12 @@ class _MyHomePageState extends State<MyHomePage> {
       listener: ((context, state) {
         if (state is SessionCheckFail) {
           showHostNameInputBottomSheet(context,
-              hostname: 'Marigold Live Room 1');
+                  hostname: 'Marigold Live Room 1')
+              .then((value) {
+            if (value != null) {
+              context.read<SessionCheckCubit>().giveSuccess(value);
+            }
+          });
         }
       }),
       builder: (context, state) {
@@ -79,7 +84,20 @@ class _MyHomePageState extends State<MyHomePage> {
                       .then((value) => _check());
                 },
                 icon: const Icon(Icons.settings),
-              )
+              ),
+              IconButton(
+                onPressed: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DevicesListScreen(
+                          deviceName: hostname ?? 'Marigold live',
+                          deviceType: DeviceType.advertiser,
+                        ),
+                      ));
+                },
+                icon: const Icon(Icons.wifi),
+              ),
             ],
           ),
           body: Stack(
@@ -126,7 +144,14 @@ class _MyHomePageState extends State<MyHomePage> {
                           closeDialog(context);
                           if (hostname == null) {
                             showHostNameInputBottomSheet(context,
-                                hostname: 'Marigold Live Room 1');
+                                    hostname: 'Marigold Live Room 1')
+                                .then((value) {
+                              if (value != null) {
+                                context
+                                    .read<SessionCheckCubit>()
+                                    .giveSuccess(value);
+                              }
+                            });
                           }
                         }
                         if (state is LoginFail) {
@@ -294,17 +319,17 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 8.0),
                   if (product['product_id'] != null)
                     Text(product['product_id'][1],
-                        style: const TextStyle(fontSize: 25)),
+                        style: const TextStyle(fontSize: 20)),
                   const SizedBox(height: 8.0),
                   if (product['private_price'] != null &&
                       product['private_price'].runtimeType != bool)
                     Text('Private Price : ${product['private_price']}',
-                        style: const TextStyle(fontSize: 25)),
+                        style: const TextStyle(fontSize: 20)),
                   const SizedBox(height: 8.0),
                   if (product['price_per_kg'] != null &&
                       product['price_per_kg'].runtimeType != bool)
-                    Text('Price/KG : ${product['price_per_kg'].toString()}',
-                        style: const TextStyle(fontSize: 25)),
+                    Text('Price/Kg : ${product['price_per_kg'].toString()}',
+                        style: const TextStyle(fontSize: 20)),
                   const SizedBox(height: 8.0),
                 ],
               ),
@@ -386,19 +411,96 @@ class _MyHomePageState extends State<MyHomePage> {
   // }
 
   _hostChanger(bool hostRunning) {
-    if (!hostRunning) {
-      _wifiP2PConnectionUtils.circularProgress(_notifier);
-    } else {
-      _wifiP2PConnectionUtils.stopHost();
-      _wifiP2PConnectionUtils.stopBrowse();
-      _notifier.value = 0.0;
-      _notifier.notifyListeners();
-      setState(() {});
-    }
+    FlutterBlueElves.instance.androidCheckBlueLackWhat().then((_blueLack) {
+      if (_blueLack.contains(AndroidBluetoothLack.bluetoothFunction)) {
+        ///turn on bluetooth function
+        FlutterBlueElves.instance.androidOpenBluetoothService((isOk) {
+          if (!isOk) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Open Location and bluetooth'),
+                backgroundColor: Colors.red));
+          }
+        });
+      }
+      if (_blueLack.contains(AndroidBluetoothLack.locationFunction)) {
+        ///turn on location function
+        FlutterBlueElves.instance.androidOpenLocationService((isOk) {
+          if (!isOk) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Open Location and bluetooth'),
+                backgroundColor: Colors.red));
+          }
+        });
+      }
+      if (_blueLack.isEmpty) {
+        if (!hostRunning) {
+          _wifiP2PConnectionUtils.circularProgress(_notifier);
+        } else {
+          _wifiP2PConnectionUtils.stopHost();
+          _wifiP2PConnectionUtils.stopBrowse();
+          _notifier.value = 0.0;
+          _notifier.notifyListeners();
+          setState(() {});
+        }
+      }
+    });
   }
 
-  void checkPermission() async {}
+  void checkPermission() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.bluetoothConnect,
+      Permission.bluetoothAdvertise,
+      Permission.bluetoothScan,
+      Permission.bluetooth,
+      Permission.nearbyWifiDevices,
+    ].request();
+    statuses.forEach((key, value) {
+      if (value.isDenied && value.isPermanentlyDenied) {
+        return;
+      }
+    });
+    if (statuses.values.contains(PermissionStatus.denied)) {
+      checkPermission();
+    }
+  }
 }
+// FlutterBlueElves.instance.androidCheckBlueLackWhat().then((_blueLack) {
+//   if (_blueLack.contains(AndroidBluetoothLack.locationPermission)) {
+//     ///apply location permission
+//     FlutterBlueElves.instance.androidApplyLocationPermission((isOk) {
+//       print(isOk
+//           ? "User agrees to grant location permission"
+//           : "User does not agree to grant location permission");
+//     });
+//   }
+//
+//   if (_blueLack.contains(AndroidBluetoothLack.bluetoothPermission)) {
+//     ///turn on bluetooth permission
+//     FlutterBlueElves.instance.androidApplyBluetoothPermission((isOk) {
+//       print(isOk
+//           ? "The user agrees to turn on the Bluetooth permission"
+//           : "The user does not agrees to turn on the Bluetooth permission");
+//     });
+//   }
+//
+//   if (_blueLack.contains(AndroidBluetoothLack.bluetoothFunction)) {
+//     ///turn on bluetooth function
+//     FlutterBlueElves.instance.androidOpenBluetoothService((isOk) {
+//       print(isOk
+//           ? "The user agrees to turn on the Bluetooth function"
+//           : "The user does not agrees to turn on the Bluetooth function");
+//     });
+//   }
+//   if (_blueLack.contains(AndroidBluetoothLack.locationFunction)) {
+//     ///turn on location function
+//     FlutterBlueElves.instance.androidOpenLocationService((isOk) {
+//       print(isOk
+//           ? "The user agrees to turn on the positioning function"
+//           : "The user does not agree to enable the positioning function");
+//     });
+//   }
+// });
 
 /*
   *
